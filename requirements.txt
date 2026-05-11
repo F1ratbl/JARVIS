@@ -1,0 +1,12 @@
+ollama
+faster-whisper
+sounddevice
+scipy
+numpy
+openwakeword
+pyaudio
+gtts
+fastapi
+uvicorn
+websockets
+ddgs

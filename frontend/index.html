@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html class="dark" lang="tr">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>JARVIS</title>
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com" rel="preconnect"/>
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Tailwind Configuration -->
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-low": "#1b1b20",
+                    "surface": "#131318",
+                    "surface-dim": "#131318",
+                    "primary-container": "#00d4ff",
+                    "background": "#131318",
+                    "on-primary-fixed-variant": "#004e5f",
+                    "primary": "#a8e8ff",
+                    "secondary": "#d1bcff",
+                    "on-background": "#e4e1e9",
+                    "on-primary-fixed": "#001f27",
+                    "secondary-fixed-dim": "#d1bcff",
+                    "tertiary-fixed": "#ffdadb",
+                    "on-primary-container": "#00586b",
+                    "on-error-container": "#ffdad6",
+                    "surface-bright": "#39383e",
+                    "on-tertiary-fixed-variant": "#91002d",
+                    "primary-fixed-dim": "#3cd7ff",
+                    "on-surface-variant": "#bbc9cf",
+                    "surface-container": "#1f1f25",
+                    "on-secondary-fixed-variant": "#5700c9",
+                    "tertiary-container": "#ffadb3",
+                    "tertiary-fixed-dim": "#ffb2b8",
+                    "tertiary": "#ffd5d7",
+                    "on-secondary-fixed": "#23005b",
+                    "outline": "#859398",
+                    "on-tertiary": "#67001d",
+                    "error": "#ffb4ab",
+                    "on-tertiary-container": "#a30033",
+                    "error-container": "#93000a",
+                    "surface-tint": "#3cd7ff",
+                    "on-tertiary-fixed": "#40000f",
+                    "surface-container-highest": "#35343a",
+                    "on-secondary-container": "#ddcdff",
+                    "secondary-fixed": "#e9ddff",
+                    "on-secondary": "#3c0090",
+                    "surface-container-high": "#2a292f",
+                    "on-primary": "#003642",
+                    "surface-variant": "#35343a",
+                    "inverse-primary": "#00677e",
+                    "outline-variant": "#3c494e",
+                    "on-surface": "#e4e1e9",
+                    "on-error": "#690005",
+                    "inverse-surface": "#e4e1e9",
+                    "inverse-on-surface": "#303036",
+                    "secondary-container": "#7000ff",
+                    "surface-container-lowest": "#0e0e13",
+                    "primary-fixed": "#b4ebff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "gutter": "16px",
+                    "margin": "24px",
+                    "container-max": "1440px",
+                    "unit": "4px"
+            },
+            "fontFamily": {
+                    "body-rt": ["Inter"],
+                    "headline-md": ["Space Grotesk"],
+                    "mono-data": ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "monospace"],
+                    "display-lg": ["Space Grotesk"],
+                    "label-sm": ["Space Grotesk"]
+            },
+            "fontSize": {
+                    "body-rt": ["16px", {"lineHeight": "1.6", "letterSpacing": "0.01em", "fontWeight": "400"}],
+                    "headline-md": ["24px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                    "mono-data": ["14px", {"lineHeight": "1.4", "fontWeight": "400"}],
+                    "display-lg": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "label-sm": ["12px", {"lineHeight": "1", "letterSpacing": "0.1em", "fontWeight": "500"}]
+            }
+          }
+        }
+      }
+    </script>
+    <link rel="stylesheet" href="/static/style.css?v=4">
+</head>
+<body class="bg-surface-container-lowest text-on-surface h-screen w-screen overflow-hidden flex font-body-rt text-body-rt selection:bg-primary-container selection:text-on-primary-container">
+
+    <!-- Setup Modal Overlay -->
+    <div id="setup-modal" class="fixed inset-0 z-[100] bg-surface-container-lowest/90 backdrop-blur-xl flex justify-center items-center opacity-100 transition-opacity duration-300">
+        <div class="bg-surface-container-high border border-primary/20 rounded-2xl p-8 max-w-3xl w-[92%] max-h-[92vh] overflow-y-auto shadow-[0_0_50px_rgba(0,212,255,0.1)] flex flex-col items-center text-center transform scale-100 transition-transform duration-500" id="setup-modal-content">
+            <h2 class="font-display-lg text-display-lg text-primary mb-2 drop-shadow-[0_0_8px_rgba(0,212,255,0.6)]">JARVIS</h2>
+            <p class="font-mono-data text-mono-data text-on-surface-variant/70 mb-8 tracking-widest">Yerel zeka modelini seç ve Jarvis'i hazırla.</p>
+            
+            <div class="w-full flex gap-4 mb-8">
+                <div class="flex-1 bg-surface-container border border-outline-variant/30 rounded-xl p-4">
+                    <span class="block font-label-sm text-label-sm text-on-surface-variant mb-1 uppercase tracking-widest">Toplam bellek</span>
+                    <span id="modal-ram-total" class="font-headline-md text-headline-md text-primary">-- MB</span>
+                </div>
+                <div class="flex-1 bg-surface-container border border-outline-variant/30 rounded-xl p-4">
+                    <span class="block font-label-sm text-label-sm text-on-surface-variant mb-1 uppercase tracking-widest">Kullanılabilir</span>
+                    <span id="modal-ram-avail" class="font-headline-md text-headline-md text-primary">-- MB</span>
+                </div>
+            </div>
+
+            <div class="w-full flex flex-col gap-3 mb-6">
+                <div class="bg-surface-container/50 border border-primary/10 rounded-xl p-4 text-left">
+                    <span class="inline-block bg-primary text-on-primary font-label-sm text-label-sm px-3 py-1 rounded-full mb-2">Ses algılama</span>
+                    <div class="flex justify-between items-center">
+                        <span class="font-mono-data text-mono-data text-on-surface">Konuşmayı metne çevirme</span>
+                        <span id="modal-rec-whisper" class="font-mono-data text-mono-data text-primary font-bold">--</span>
+                    </div>
+                </div>
+                <div class="bg-surface-container/50 border border-primary/10 rounded-xl p-4 text-left">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <span class="inline-block bg-primary text-on-primary font-label-sm text-label-sm px-3 py-1 rounded-full">Yerel zeka</span>
+                        <span id="modal-rec-llm" class="font-mono-data text-mono-data text-primary font-bold">--</span>
+                    </div>
+                    <p id="model-recommendation-text" class="mt-3 text-on-surface-variant/80 font-mono-data text-[12px] leading-relaxed">RAM bilgisi bekleniyor.</p>
+                </div>
+            </div>
+
+            <div id="model-options" class="w-full grid grid-cols-1 md:grid-cols-2 gap-3 mb-8 text-left">
+                <div class="bg-surface-container/50 border border-outline-variant/30 rounded-xl p-4 text-on-surface-variant font-mono-data text-[12px]">
+                    Model bilgileri yükleniyor...
+                </div>
+            </div>
+
+            <div id="download-progress-container" style="display: none;" class="w-full mb-6 text-left">
+                <div class="flex justify-between items-end mb-2">
+                    <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest" id="download-progress-text">Hazırlanıyor...</span>
+                </div>
+                <div class="h-2 w-full bg-surface-container-high rounded-full overflow-hidden border border-outline-variant/20">
+                    <div id="download-progress-fill" class="h-full bg-primary w-[0%] transition-all duration-300 shadow-[0_0_10px_rgba(0,212,255,0.5)]"></div>
+                </div>
+            </div>
+
+            <button id="btn-accept-models" class="w-full bg-primary text-on-primary hover:bg-primary-fixed-dim transition-all py-4 rounded-xl font-headline-md text-[18px] uppercase tracking-widest shadow-[0_0_20px_rgba(0,212,255,0.3)] hover:shadow-[0_0_30px_rgba(0,212,255,0.6)]">
+                Jarvis'i Hazırla
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="main-app" class="h-full w-full flex opacity-0 pointer-events-none transition-opacity duration-700">
+        <!-- TopAppBar -->
+        <header class="fixed top-0 w-full border-b border-cyan-500/30 bg-cyan-950/20 backdrop-blur-xl flex justify-between items-center px-6 h-16 z-50 shadow-[0_4px_30px_rgba(0,0,0,0.1)]">
+            <div class="flex items-center gap-4">
+                <span class="text-xl font-bold text-cyan-400 drop-shadow-[0_0_8px_rgba(0,212,255,0.8)] font-space-grotesk tracking-widest uppercase">JARVIS</span>
+            </div>
+            <div class="flex items-center gap-6">
+                <!-- Global Status Indicator -->
+                <div class="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-outline-variant/30">
+                    <span id="header-status-indicator" class="w-2 h-2 rounded-full bg-primary drop-shadow-[0_0_5px_rgba(0,212,255,0.8)]"></span>
+                    <span id="header-status-text" class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">Hazırlanıyor</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- SideNavBar (Left Panel) -->
+        <nav class="fixed left-0 top-0 h-full w-64 border-r border-cyan-500/20 bg-cyan-950/10 backdrop-blur-2xl shadow-2xl flex flex-col py-20 z-40 transition-all duration-300 ease-in-out">
+            <!-- Header Info -->
+            <div class="px-6 mb-8 flex flex-col gap-1 border-b border-cyan-500/10 pb-6">
+                <div class="flex items-center gap-3 mb-2">
+                    <span class="material-symbols-outlined text-cyan-400 text-[28px] drop-shadow-[0_0_8px_rgba(0,212,255,0.6)]" data-icon="memory">memory</span>
+                    <h2 class="text-cyan-400 font-black font-space-grotesk text-lg tracking-widest">Jarvis</h2>
+                </div>
+                <span class="font-space-grotesk text-xs tracking-tighter text-cyan-700">Yerel asistan aktif</span>
+                <button class="mt-4 border border-cyan-500/30 text-cyan-400 bg-cyan-500/5 hover:bg-cyan-500/10 px-4 py-2 rounded font-label-sm text-label-sm tracking-widest uppercase transition-colors shadow-[0_0_10px_rgba(0,212,255,0.1)]">
+                    Durumu Yenile
+                </button>
+            </div>
+
+            <!-- Telemetry Data -->
+            <div class="px-6 flex flex-col gap-6 mb-8 flex-1 overflow-y-auto">
+                <!-- RAM Monitor -->
+                <div class="flex flex-col gap-2">
+                    <div class="flex items-center justify-between">
+                        <span class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1">
+                            <span class="material-symbols-outlined text-[14px]" data-icon="memory">memory</span>
+                            Bellek
+                        </span>
+                        <span id="ram-percentage" class="font-mono-data text-mono-data text-primary text-[10px]">--%</span>
+                    </div>
+                    <div class="h-1.5 w-full bg-surface-container-high rounded-full overflow-hidden border border-outline-variant/20">
+                        <div id="ram-fill" class="h-full bg-primary w-[0%] shadow-[0_0_10px_rgba(0,212,255,0.5)] transition-all duration-500"></div>
+                    </div>
+                    <span id="ram-details" class="font-mono-data text-mono-data text-[10px] text-on-surface-variant/70">Kullanılan: -- / Toplam: --</span>
+                </div>
+
+                <!-- Chat Sessions -->
+                <div class="flex flex-col gap-3">
+                    <div class="flex items-center justify-between gap-2 border-b border-cyan-500/10 pb-2">
+                        <span class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1">
+                            <span class="material-symbols-outlined text-[14px]" data-icon="forum">forum</span>
+                            Sohbet geçmişi
+                        </span>
+                        <button id="btn-clear-chats" class="sidebar-icon-button" title="Tüm sohbetleri sil">
+                            <span class="material-symbols-outlined text-[15px]" data-icon="delete">delete</span>
+                        </button>
+                    </div>
+                    <button id="btn-new-chat" class="sidebar-command-button">
+                        <span class="material-symbols-outlined text-[15px]" data-icon="add">add</span>
+                        Yeni sohbet
+                    </button>
+                    <ul id="chat-sessions-list" class="flex flex-col gap-2 font-mono-data text-mono-data text-xs">
+                        <li class="text-on-surface-variant/50">Henüz sohbet yok.</li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content Canvas (Right Panel) -->
+        <main class="ml-64 pt-16 flex-1 h-full flex flex-col relative bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-surface-container-low via-background to-background">
+            <!-- Chat History Area -->
+            <div id="chat-history" class="flex-1 overflow-y-auto p-margin flex flex-col gap-margin pb-32 scroll-smooth">
+                <!-- Context Header -->
+                <div class="w-full text-center py-4">
+                    <span class="font-mono-data text-mono-data text-xs text-on-surface-variant/50 border border-outline-variant/20 px-4 py-1 rounded-full bg-surface-container/50 backdrop-blur-sm">Yerel bağlantı aktif // localhost:8000</span>
+                </div>
+                
+                <!-- Welcome Message -->
+                <div class="self-start max-w-[80%] flex flex-col gap-1">
+                    <div class="border-l border-primary/50 bg-gradient-to-r from-primary/10 to-transparent p-5 rounded-r-xl rounded-tl-sm shadow-[inset_2px_0_15px_rgba(0,212,255,0.1)] backdrop-blur-sm">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="material-symbols-outlined text-primary text-[16px]" data-icon="neurology">neurology</span>
+                            <span class="font-headline-md text-headline-md text-[14px] text-primary tracking-widest drop-shadow-[0_0_5px_rgba(0,212,255,0.5)]">Jarvis</span>
+                        </div>
+                        <p class="text-on-surface/90 leading-relaxed font-mono-data text-mono-data text-[13px]" id="welcome-text">
+                            Sistem başlatılıyor, bağlantı bekleniyor...
+                        </p>
+                    </div>
+                    <span class="self-start font-mono-data text-mono-data text-[10px] text-primary/50 px-2" id="welcome-time">JARVIS // --:--:--</span>
+                </div>
+            </div>
+
+            <!-- Input / Control Area (Bottom) -->
+            <div class="absolute bottom-0 w-full h-32 border-t border-cyan-500/10 bg-surface/80 backdrop-blur-xl flex flex-col items-center justify-center shrink-0">
+                <!-- Decorative Tech Line -->
+                <div class="absolute top-0 left-0 w-full flex justify-between px-margin -mt-[1px]">
+                    <div class="w-16 h-[2px] bg-primary shadow-[0_0_8px_rgba(0,212,255,0.8)]"></div>
+                    <div class="w-8 h-[2px] bg-primary shadow-[0_0_8px_rgba(0,212,255,0.8)] opacity-50"></div>
+                </div>
+                
+                <div class="w-full max-w-4xl px-8 flex items-center gap-6 mt-2">
+                    <!-- Text Input -->
+                    <div class="flex-1 relative group">
+                        <div class="absolute inset-0 bg-primary/5 rounded-xl border border-primary/20 group-hover:border-primary/40 transition-colors shadow-[inset_0_0_20px_rgba(0,212,255,0.05)]"></div>
+                        <input type="text" id="chat-input" placeholder="Jarvis'e yaz..." class="w-full bg-transparent border-none text-on-surface font-mono-data text-[13px] px-6 py-4 focus:ring-0 focus:outline-none placeholder:text-on-surface-variant/30 relative z-10 tracking-wider" autocomplete="off">
+                        <button id="btn-send-chat" class="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-primary/50 hover:text-primary hover:drop-shadow-[0_0_8px_rgba(0,212,255,0.8)] transition-all z-20 focus:outline-none">
+                            <span class="material-symbols-outlined text-[20px]" data-icon="send">send</span>
+                        </button>
+                    </div>
+
+                    <!-- Main Active Mic Button -->
+                    <div id="orb-container" class="w-16 h-16 rounded-full border-2 border-primary bg-primary/10 flex items-center justify-center shadow-[0_0_30px_rgba(0,212,255,0.3)] relative group transition-all duration-300 shrink-0 cursor-pointer hover:shadow-[0_0_40px_rgba(0,212,255,0.5)]">
+                        <!-- Concentric rings for tech feel -->
+                        <div id="orb-ring-inner" class="absolute inset-1.5 rounded-full border border-primary/30 border-dashed transition-all duration-500"></div>
+                        <div id="orb-ring-outer" class="absolute inset-0 rounded-full border border-primary/20 scale-110 transition-all duration-500"></div>
+                        <span id="mic-icon" class="material-symbols-outlined text-primary text-[28px] drop-shadow-[0_0_10px_rgba(0,212,255,0.8)]" data-icon="mic" data-weight="fill" style="font-variation-settings: 'FILL' 1;">mic</span>
+                        <div id="voice-wave" aria-hidden="true">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
+                <span id="mic-status-text" class="mt-3 font-mono-data text-mono-data text-[10px] text-primary/70 tracking-[0.2em] uppercase">Dinlemeye hazır</span>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/app.js?v=14"></script>
+</body>
+</html>

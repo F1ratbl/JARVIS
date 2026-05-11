@@ -1,0 +1,10 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+venv/
+memory_manager/build/
+memory_manager/.cache/
+memory_manager/compile_commands.json
+memory_manager/_memory_manager*.so
