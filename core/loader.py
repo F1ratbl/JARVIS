@@ -481,7 +481,7 @@ class LazyLoader:
         if llm_model == "mistral:7b-q2":
             llm_model = "llama3.2" # Daha uyumlu ve verimli 3B model
         elif llm_model == "mistral:7b-q4":
-            llm_model = "qwen3:8b" # Türkçe komut/JSON/tool takibi için daha güçlü 8B model
+            llm_model = "qwen2.5:7b" # 8 GB RAM'de Türkçe komut/JSON/tool takibi için daha dengeli model
             
         return {
             "total_ram_mb": total,

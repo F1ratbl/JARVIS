@@ -168,6 +168,9 @@
                     <span id="header-status-indicator" class="w-2 h-2 rounded-full bg-primary drop-shadow-[0_0_5px_rgba(0,212,255,0.8)]"></span>
                     <span id="header-status-text" class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">Hazırlanıyor</span>
                 </div>
+                <button id="btn-open-settings" class="header-icon-button" title="Ayarlar">
+                    <span class="material-symbols-outlined text-[22px]" data-icon="settings">settings</span>
+                </button>
             </div>
         </header>
 
@@ -286,6 +289,54 @@
         </main>
     </div>
 
-    <script src="/static/app.js?v=14"></script>
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="settings-modal opacity-0 pointer-events-none" aria-hidden="true">
+        <div class="settings-panel">
+            <div class="settings-header">
+                <div>
+                    <h2 class="settings-title">Ayarlar</h2>
+                    <p id="settings-model-summary" class="settings-subtitle">Model bilgisi bekleniyor.</p>
+                </div>
+                <button id="btn-close-settings" class="header-icon-button" title="Kapat">
+                    <span class="material-symbols-outlined text-[22px]" data-icon="close">close</span>
+                </button>
+            </div>
+
+            <div class="settings-memory">
+                <div>
+                    <span class="settings-kicker">Toplam bellek</span>
+                    <strong id="settings-ram-total">-- MB</strong>
+                </div>
+                <div>
+                    <span class="settings-kicker">Kullanılabilir</span>
+                    <strong id="settings-ram-avail">-- MB</strong>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-section-heading">
+                    <span class="material-symbols-outlined text-[18px]" data-icon="psychology">psychology</span>
+                    <span>Yerel zeka modeli</span>
+                </div>
+                <p id="settings-recommendation-text" class="settings-help">RAM durumuna göre öneri hazırlanıyor.</p>
+                <div id="settings-model-options" class="settings-model-grid">
+                    <div class="settings-empty">Model bilgileri yükleniyor...</div>
+                </div>
+            </div>
+
+            <div id="settings-download-progress-container" class="settings-progress" style="display: none;">
+                <span id="settings-download-progress-text">Hazırlanıyor...</span>
+                <div class="settings-progress-track">
+                    <div id="settings-download-progress-fill" class="settings-progress-fill"></div>
+                </div>
+            </div>
+
+            <button id="btn-save-settings-model" class="settings-primary-button">
+                Modeli uygula
+            </button>
+        </div>
+    </div>
+
+    <script src="/static/app.js?v=15"></script>
 </body>
 </html>
