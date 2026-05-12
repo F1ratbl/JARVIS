@@ -176,7 +176,7 @@ Ardindan:
 http://localhost:8000
 ```
 
-## Performans Olcumu
+## 6. Performans Testleri ve Optimizasyon
 
 `core/metrics.py`, her komut icin asama surelerini olcer:
 
@@ -193,6 +193,77 @@ Hedef: STT + LLM + action + TTS toplam dongusunu mumkun oldugunca 3 saniye altin
 Model secimi `assistant/config.py` icindeki `OLLAMA_MODEL` ile yapilir. Varsayilan model `qwen2.5:7b` olarak ayarlidir; Turkce komutlari, JSON aksiyon ciktilarini ve arac kullanimini `llama3.2` gibi kucuk modellere gore daha tutarli takip eder. RAM'e gore otomatik secim isterseniz degeri `"auto"` yapabilirsiniz.
 
 8 GB RAM'li sistemlerde onerilen pratik secim `qwen2.5:7b`, daha hizli ama daha zayif alternatif `llama3.2`, daha genis bellekli sistemlerde denenebilecek alternatifler ise `qwen3:8b`, `llama3.1:8b` veya `gemma3:12b` modelleridir.
+
+### 6.1. Gecikme (Latency) Testleri
+
+Olcumler 11 Mayis 2026 tarihinde, 8 GB RAM'li macOS ortaminda yapilmistir. Testlerde varsayilan model once `qwen3:8b`, optimizasyonlardan sonra `qwen2.5:7b` olarak kullanilmistir.
+
+Ilk testlerde asil gecikmenin STT, TTS veya DuckDuckGo aramasindan degil; yerel LLM'in ilk calismasindan ve `assistant/brain.py` icindeki uzun sistem prompt'unun her istekte islenmesinden kaynaklandigi gorulmustur.
+
+| Asama / Senaryo | Optimizasyon oncesi | Optimizasyon sonrasi | Not |
+| --- | ---: | ---: | --- |
+| `merhaba` ilk LLM cevabi, uzun prompt | 27.358 sn | - | `qwen2.5:7b`, preload yok |
+| `merhaba` mevcut preload ile, uzun prompt | 25.281 sn | - | Sadece kisa LLM warmup yeterli olmadi |
+| `merhaba` kompakt prompt ile, preload yok | - | 14.921 sn | Sistem prompt'u 6611 karakterden 1683 karaktere indirildi |
+| `merhaba` kompakt prompt + brain preload | - | 2.666 sn | Preload dogrudan `brain.process_command()` yolunu isitir |
+| Kural tabanli komut anlama | 0.000-0.003 sn | 0.000-0.003 sn | `takvimi ac`, takvim etkinligi, hava durumu niyeti |
+| Hava durumu API aksiyonu | 0.665-1.037 sn | 0.665-1.037 sn | `wttr.in` tabanli deterministik cevap |
+| DuckDuckGo sadece arama | 1.927 sn | 1.927 sn | Arama katmani ana darboğaz degil |
+| DuckDuckGo + LLM ozetleme | 42-58 sn | Henuz optimize edilmedi | Web sonucunu LLM ile ozetleme en agir sonraki aday |
+| STT model yukleme | 14.328 sn | Preload ile acilisa tasindi | Ilk sesli kullanimda hissedilen gecikme azalir |
+| STT kisa ses transkripsiyonu | 0.858 sn | 0.858 sn | Whisper model yuklendikten sonraki sure |
+| TTS kisa cevap | 1.848 sn | 1.848 sn | `macOS say`, sesli okuma suresi dahil |
+| TTS orta cevap | 6.596 sn | 6.596 sn | Cevap uzadikca dogrudan artar |
+
+Pratik UI deneyiminde cevap balonu, su an metnin sesli okunmasindan sonra gosterildigi icin kullanici tarafinda gorunen toplam sure daha yuksek olabilir. Ornegin test ekraninda:
+
+| Komut | Kullanici zamani | Jarvis cevap zamani | UI'da gorunen fark |
+| --- | --- | --- | ---: |
+| `merhaba` | 16:51:37 | 16:51:45 | ~8 sn |
+| `telegrami ac` | 16:52:06 | 16:52:14 | ~8 sn |
+
+Bu farkin bir kismi LLM/action suresi, bir kismi da TTS'in bloklayici calismasindan kaynaklanir. Kodda `process_text_command()` sonucu once `mouth.speak()` ile okur, sonra WebSocket'e `response` eventi yollar. Bu nedenle UI cevabi TTS tamamlandiktan sonra gorunur.
+
+Yapilan gecikme optimizasyonlari:
+
+- Model `qwen3:8b` yerine 8 GB RAM icin daha dengeli `qwen2.5:7b` olarak ayarlandi.
+- `OLLAMA_KEEP_ALIVE = "30m"` eklendi; model her komuttan sonra hemen bellekten dusmesin.
+- `OLLAMA_NUM_CTX` 4096'dan 2048'e indirildi; komut JSON'u icin yeterli ama daha hizli baglam penceresi kullanildi.
+- Runtime sistem prompt'u 6611 karakterden 1683 karaktere indirildi.
+- Preload sadece `global_loader.get("llm")` yapmak yerine dogrudan `brain.process_command("Hazir misin?")` cagirarak tam brain yolunu isitir hale getirildi.
+- Web arama ozetleme LLM cagrilarina da `keep_alive` eklendi.
+
+### 6.2. Kaynak Tuketimi (RAM & CPU/GPU)
+
+Test sirasinda C++ destekli `memory_manager` uzerinden raporlanan bellek durumu genel olarak su aralikta olculmustur:
+
+| Durum | RAM kullanimi | Kullanilabilir RAM | Bellek baskisi |
+| --- | ---: | ---: | --- |
+| Normal test araligi | %63-%74 | 2.1-3.0 GB | medium |
+| Daha bos durumda web/LLM ayrimi | %49 civari | 4.1 GB | low |
+| `qwen3:8b` denemeleri | %77-%83 | 1.3-1.8 GB | medium/high siniri |
+
+`qwen3:8b` modeli 8 GB RAM'de teorik olarak calissa da pratikte model runner'in durmasina ve 40-50 saniyeyi asan cevap surelerine yol acmistir. Bu nedenle varsayilan model `qwen2.5:7b` olarak dusurulmustur. Bu tercih, kalite ile bellek kararliligi arasinda daha dengeli sonuc vermektedir.
+
+Kaynak kullanimini azaltmak icin uygulanan kararlar:
+
+- LLM modeli RAM'e gore secilebilir hale getirildi.
+- Ayarlar paneline model secimi eklendi.
+- 8 GB RAM icin model onerisi artik `qwen3:8b` yerine `qwen2.5:7b` verir.
+- Whisper, web arama modulu ve LLM arka planda preload edilir.
+- Gereksiz buyuk sistem prompt'u kisaltilarak token isleme maliyeti azaltildi.
+
+### 6.3. Donanim Avantajlari
+
+Hedef platform Apple Silicon macOS olarak secildigi icin sistem, birlesik bellek (Unified Memory) mimarisinden faydalanir. CPU, GPU ve Neural Engine ayni fiziksel bellek havuzunu paylastigi icin veri kopyalama maliyeti klasik ayrik bellek mimarilerine gore daha dusuktur. Bu, yerel model cikariminda ve ses isleme akisinda avantaj saglar.
+
+Buna ragmen 8 GB RAM sinifi, 7B-8B arasi modeller icin sinirli bir alandir. Bu projede yapilan testler, 8 GB cihazlarda model seciminin yanit suresini dogrudan belirledigini gostermistir:
+
+- `qwen3:8b`: Daha zeki ancak 8 GB RAM'de gecikme ve runner kararliligi riski yuksek.
+- `qwen2.5:7b`: Turkce komut ve JSON uretimi icin daha dengeli varsayilan.
+- `llama3.2:latest`: Daha hizli alternatif; ancak Turkce/anlama kalitesi daha zayif olabilir.
+
+Bu nedenle sistem ilk kurulumda RAM'i analiz eder, model secimi icin oneride bulunur ve nihai karari kullaniciya birakir.
 
 ## Test
 

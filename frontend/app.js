@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Top Bar & Global Elements
     const headerStatusIndicator = document.getElementById('header-status-indicator');
     const headerStatusText = document.getElementById('header-status-text');
+    const btnOpenSettings = document.getElementById('btn-open-settings');
     
     // Sidebar Elements
     const ramPercentage = document.getElementById('ram-percentage');
@@ -30,9 +31,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const modelRecommendationText = document.getElementById('model-recommendation-text');
     const modelOptions = document.getElementById('model-options');
     const btnAcceptModels = document.getElementById('btn-accept-models');
+
+    // Settings Modal Elements
+    const settingsModal = document.getElementById('settings-modal');
+    const btnCloseSettings = document.getElementById('btn-close-settings');
+    const settingsModelSummary = document.getElementById('settings-model-summary');
+    const settingsRamTotal = document.getElementById('settings-ram-total');
+    const settingsRamAvail = document.getElementById('settings-ram-avail');
+    const settingsRecommendationText = document.getElementById('settings-recommendation-text');
+    const settingsModelOptions = document.getElementById('settings-model-options');
+    const btnSaveSettingsModel = document.getElementById('btn-save-settings-model');
     
     const mainApp = document.getElementById('main-app');
     let selectedSetupModel = '';
+    let selectedSettingsModel = '';
+    let activeModelContext = 'setup';
     let latestModelSetup = null;
     const SETUP_VERSION = 'model-picker-v1';
     const CHAT_STORE_KEY = 'jarvis.chat.sessions.v1';
@@ -277,10 +290,88 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function openSettingsModal() {
+        if (!settingsModal) return;
+        if (latestModelSetup) {
+            renderModelOptions(latestModelSetup, 'settings');
+        }
+        settingsModal.classList.remove('opacity-0', 'pointer-events-none');
+        settingsModal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeSettingsModal() {
+        if (!settingsModal) return;
+        settingsModal.classList.add('opacity-0', 'pointer-events-none');
+        settingsModal.setAttribute('aria-hidden', 'true');
+    }
+
+    function resetProgress(context) {
+        const prefix = context === 'settings' ? 'settings-' : '';
+        const progressText = document.getElementById(`${prefix}download-progress-text`);
+        const progressFill = document.getElementById(`${prefix}download-progress-fill`);
+        const progressContainer = document.getElementById(`${prefix}download-progress-container`);
+        if (!progressText || !progressFill || !progressContainer) return;
+
+        progressContainer.style.display = 'block';
+        progressText.style.color = '';
+        progressText.classList.remove('text-error');
+        progressFill.classList.remove('bg-error');
+        progressFill.classList.add('bg-primary');
+        progressFill.style.width = '0%';
+        progressText.textContent = 'Jarvis hazırlanıyor...';
+    }
+
+    function updateDownloadProgress(data) {
+        const context = activeModelContext === 'settings' ? 'settings' : 'setup';
+        const prefix = context === 'settings' ? 'settings-' : '';
+        const progressFill = document.getElementById(`${prefix}download-progress-fill`);
+        const progressText = document.getElementById(`${prefix}download-progress-text`);
+        const progressContainer = document.getElementById(`${prefix}download-progress-container`);
+        const actionButton = context === 'settings' ? btnSaveSettingsModel : btnAcceptModels;
+        if (!progressFill || !progressText || !progressContainer) return;
+
+        progressContainer.style.display = 'block';
+
+        if (data.status === 'success') {
+            progressFill.style.width = '100%';
+            progressText.textContent = 'Model seçildi';
+            if (actionButton) {
+                actionButton.disabled = false;
+                actionButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                actionButton.textContent = context === 'settings' ? 'Modeli uygula' : actionButton.textContent;
+            }
+            if (context === 'setup') {
+                hideSetupModal();
+                sessionStorage.setItem('setupCompleted', SETUP_VERSION);
+            } else {
+                setTimeout(closeSettingsModal, 450);
+            }
+            return;
+        }
+
+        if (data.percent === -1) {
+            progressText.textContent = data.status;
+            progressText.classList.add('text-error');
+            progressFill.classList.remove('bg-primary');
+            progressFill.classList.add('bg-error');
+
+            if (actionButton) {
+                actionButton.disabled = false;
+                actionButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                actionButton.textContent = 'Tekrar dene';
+            }
+            return;
+        }
+
+        progressFill.style.width = `${data.percent}%`;
+        progressText.textContent = `${data.status} (%${data.percent})`;
+    }
+
     if (btnAcceptModels) {
         btnAcceptModels.addEventListener('click', () => {
             if (ws && ws.readyState === WebSocket.OPEN) {
                 const selectedModelInfo = latestModelSetup?.models?.find(model => model.name === selectedSetupModel);
+                activeModelContext = 'setup';
                 ws.send(JSON.stringify({
                     action: 'start_setup',
                     llm_model: selectedSetupModel || modalRecLlm.textContent
@@ -290,22 +381,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnAcceptModels.classList.add('opacity-50', 'cursor-not-allowed');
                 btnAcceptModels.textContent = selectedModelInfo?.installed ? "Seçiliyor..." : "İndiriliyor...";
                 
-                // Reset progress bar in case of previous error
-                const progressText = document.getElementById('download-progress-text');
-                const progressFill = document.getElementById('download-progress-fill');
-                if (progressText && progressFill) {
-                    progressText.style.color = "inherit";
-                    progressFill.classList.remove('bg-error');
-                    progressFill.classList.add('bg-primary');
-                    progressFill.style.width = "0%";
-                    progressText.textContent = "Jarvis hazırlanıyor...";
-                }
-                
-                document.getElementById('download-progress-container').style.display = 'block';
+                resetProgress('setup');
             } else {
                 hideSetupModal();
                 sessionStorage.setItem('setupCompleted', SETUP_VERSION);
             }
+        });
+    }
+
+    if (btnOpenSettings) {
+        btnOpenSettings.addEventListener('click', openSettingsModal);
+    }
+    if (btnCloseSettings) {
+        btnCloseSettings.addEventListener('click', closeSettingsModal);
+    }
+    if (settingsModal) {
+        settingsModal.addEventListener('click', (event) => {
+            if (event.target === settingsModal) {
+                closeSettingsModal();
+            }
+        });
+    }
+    if (btnSaveSettingsModel) {
+        btnSaveSettingsModel.addEventListener('click', () => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            const selectedModel = selectedSettingsModel || latestModelSetup?.current_model || latestModelSetup?.recommended_model;
+            if (!selectedModel) return;
+            const selectedModelInfo = latestModelSetup?.models?.find(model => model.name === selectedModel);
+            activeModelContext = 'settings';
+            ws.send(JSON.stringify({
+                action: 'select_model',
+                llm_model: selectedModel
+            }));
+            btnSaveSettingsModel.disabled = true;
+            btnSaveSettingsModel.classList.add('opacity-50', 'cursor-not-allowed');
+            btnSaveSettingsModel.textContent = selectedModelInfo?.installed ? 'Seçiliyor...' : 'İndiriliyor...';
+            resetProgress('settings');
         });
     }
 
@@ -406,27 +517,11 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (msg.type === 'system_info') {
             updateSystemInfo(msg.data);
         }
+        else if (msg.type === 'preload') {
+            updateHeaderStatus(msg.data, "info");
+        }
         else if (msg.type === 'download_progress') {
-            const data = msg.data;
-            const progressFill = document.getElementById('download-progress-fill');
-            const progressText = document.getElementById('download-progress-text');
-            
-            if (data.status === 'success') {
-                hideSetupModal();
-                sessionStorage.setItem('setupCompleted', SETUP_VERSION);
-            } else if (data.percent === -1) {
-                progressText.textContent = data.status;
-                progressText.classList.add('text-error');
-                progressFill.classList.remove('bg-primary');
-                progressFill.classList.add('bg-error');
-                
-                btnAcceptModels.disabled = false;
-                btnAcceptModels.classList.remove('opacity-50', 'cursor-not-allowed');
-                btnAcceptModels.textContent = "Tekrar dene";
-            } else {
-                progressFill.style.width = `${data.percent}%`;
-                progressText.textContent = `${data.status} (%${data.percent})`;
-            }
+            updateDownloadProgress(msg.data);
         }
         else if (msg.type === 'latency') {
             console.log("Latency metrics:", msg.data);
@@ -494,46 +589,69 @@ document.addEventListener('DOMContentLoaded', () => {
                 modalRecWhisper.textContent = recs.whisper_model;
                 modalRecLlm.textContent = recs.llm_model;
             }
+
+            if (settingsRamTotal) settingsRamTotal.textContent = `${total} MB`;
+            if (settingsRamAvail) settingsRamAvail.textContent = `${available} MB`;
         }
 
         if (data.model_setup) {
             latestModelSetup = data.model_setup;
-            renderModelOptions(data.model_setup);
+            renderModelOptions(data.model_setup, 'setup');
+            renderModelOptions(data.model_setup, 'settings');
         }
     }
 
-    function renderModelOptions(setup) {
-        if (!modelOptions) return;
+    function renderModelOptions(setup, context = 'setup') {
+        const targetOptions = context === 'settings' ? settingsModelOptions : modelOptions;
+        if (!targetOptions) return;
         const models = setup.models || [];
         if (!models.length) {
-            modelOptions.innerHTML = '<div class="bg-surface-container/50 border border-outline-variant/30 rounded-xl p-4 text-on-surface-variant font-mono-data text-[12px]">Model listesi alınamadı.</div>';
+            targetOptions.innerHTML = '<div class="settings-empty">Model listesi alınamadı.</div>';
             return;
         }
 
-        if (!selectedSetupModel || !models.some(model => model.name === selectedSetupModel)) {
-            selectedSetupModel = setup.current_model && setup.current_model !== 'auto'
+        let selectedModelName = context === 'settings' ? selectedSettingsModel : selectedSetupModel;
+        if (!selectedModelName || !models.some(model => model.name === selectedModelName)) {
+            selectedModelName = setup.current_model && setup.current_model !== 'auto'
                 ? setup.current_model
                 : setup.recommended_model;
         }
 
-        if (!models.some(model => model.name === selectedSetupModel)) {
-            selectedSetupModel = setup.recommended_model || models[0].name;
+        if (!models.some(model => model.name === selectedModelName)) {
+            selectedModelName = setup.recommended_model || models[0].name;
         }
 
-        const selectedModel = models.find(model => model.name === selectedSetupModel);
-        if (modalRecLlm) {
+        if (context === 'settings') {
+            selectedSettingsModel = selectedModelName;
+        } else {
+            selectedSetupModel = selectedModelName;
+        }
+
+        const selectedModel = models.find(model => model.name === selectedModelName);
+        if (context === 'setup' && modalRecLlm) {
             modalRecLlm.textContent = setup.recommended_model || selectedSetupModel;
         }
-        if (modelRecommendationText) {
+        if (context === 'setup' && modelRecommendationText) {
             modelRecommendationText.textContent = setup.recommendation_reason || 'RAM durumuna göre öneri hazırlanıyor.';
         }
-        if (btnAcceptModels && selectedModel && !btnAcceptModels.disabled) {
+        if (context === 'setup' && btnAcceptModels && selectedModel && !btnAcceptModels.disabled) {
             btnAcceptModels.textContent = selectedModel.installed ? 'Bu modeli kullan' : 'Seçili modeli indir';
         }
+        if (context === 'settings') {
+            if (settingsModelSummary) {
+                settingsModelSummary.textContent = `Aktif model: ${setup.current_model || 'auto'}`;
+            }
+            if (settingsRecommendationText) {
+                settingsRecommendationText.textContent = setup.recommendation_reason || 'RAM durumuna göre öneri hazırlanıyor.';
+            }
+            if (btnSaveSettingsModel && selectedModel && !btnSaveSettingsModel.disabled) {
+                btnSaveSettingsModel.textContent = selectedModel.installed ? 'Modeli uygula' : 'Modeli indir ve uygula';
+            }
+        }
 
-        modelOptions.innerHTML = '';
+        targetOptions.innerHTML = '';
         models.forEach(model => {
-            const isSelected = model.name === selectedSetupModel;
+            const isSelected = model.name === selectedModelName;
             const card = document.createElement('button');
             card.type = 'button';
             card.className = [
@@ -571,10 +689,14 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
 
             card.addEventListener('click', () => {
-                selectedSetupModel = model.name;
-                renderModelOptions(setup);
+                if (context === 'settings') {
+                    selectedSettingsModel = model.name;
+                } else {
+                    selectedSetupModel = model.name;
+                }
+                renderModelOptions(setup, context);
             });
-            modelOptions.appendChild(card);
+            targetOptions.appendChild(card);
         });
     }
 

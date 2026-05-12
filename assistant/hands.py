@@ -480,6 +480,14 @@ def web_search(query: str) -> str:
             return f"'{query}' için internette herhangi bir sonuç bulamadım efendim."
             
         # 2. Sonuçları metin olarak birleştir
+        try:
+            from assistant.config import WEB_SEARCH_USE_LLM_SUMMARY
+        except ImportError:
+            WEB_SEARCH_USE_LLM_SUMMARY = False
+
+        if not WEB_SEARCH_USE_LLM_SUMMARY:
+            return _fallback_search_answer(query, results)
+
         context_lines = []
         for index, result in enumerate(results, start=1):
             title = result.get("title", "Başlıksız")
@@ -491,6 +499,11 @@ def web_search(query: str) -> str:
         # 3. LLM'e özetlet
         ollama = global_loader.get("llm")
         if ollama:
+            try:
+                from assistant.config import OLLAMA_KEEP_ALIVE
+            except ImportError:
+                OLLAMA_KEEP_ALIVE = "30m"
+
             today = datetime.now().strftime("%Y-%m-%d")
             prompt = (
                 "Sen Jarvis'sin. Aşağıdaki web arama sonuçlarını kullanıcıya Türkçe, kısa ve anlaşılır biçimde özetle.\n"
@@ -509,6 +522,7 @@ def web_search(query: str) -> str:
             response = ollama.chat(
                 model=global_loader.get_llm_model(),
                 messages=[{"role": "user", "content": prompt}],
+                keep_alive=OLLAMA_KEEP_ALIVE,
                 options={"temperature": 0.1, "top_p": 0.8},
             )
             

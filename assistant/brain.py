@@ -187,6 +187,37 @@ Kullanıcı: "Yağış oranı kaç?"
 {"action": "get_weather", "target": "Bitlis", "detail": "precipitation"}
 """
 
+# Daha hızlı LLM çağrıları için kompakt üretim prompt'u.
+# Üstteki uzun açıklama dokümantasyon amaçlı kalsın; runtime'da bu şema kullanılır.
+SYSTEM_PROMPT = """
+Sen Jarvis'sin. Türkçe kullanıcı isteğini SADECE tek JSON objesine çevir.
+JSON dışında açıklama, markdown veya sohbet yazma. Her çıktıda "action" alanı zorunlu.
+
+Aksiyon şemaları:
+- open_app: {"action":"open_app","target":"UygulamaAdı"}
+- close_app: {"action":"close_app","target":"UygulamaAdı"}
+- play_music: {"action":"play_music","target":"şarkı/sanatçı"}
+- pause_music, next_track, previous_track, get_time, lock_screen, dark_mode, screenshot, empty_trash:
+  {"action":"aksiyon_adı"}
+- set_volume: {"action":"set_volume","value":0-100}
+- set_brightness: {"action":"set_brightness","value":0.0-1.0}
+- web_search: {"action":"web_search","target":"arama sorgusu"}
+- create_event: {"action":"create_event","target":"başlık","date":"YYYY-MM-DD|bugün|yarın","time":"HH:MM|","duration":60,"all_day":false}
+- create_note: {"action":"create_note","target":"başlık","content":"içerik"}
+- set_timer: {"action":"set_timer","value":sayı,"unit":"saniye|dakika|saat","label":"etiket"}
+- set_alarm: {"action":"set_alarm","time":"HH:MM","label":"etiket"}
+- confirm_action: {"action":"confirm_action"}
+- cancel_action: {"action":"cancel_action"}
+- get_weather: {"action":"get_weather","target":"şehir","detail":"summary|precipitation|temperature|wind|humidity"}
+- general_response: {"action":"general_response","response":"kısa Türkçe yanıt"}
+
+Seçim kuralları:
+- Bilgi, güncel veri, fiyat, haber, tanım veya araştırma sorularında web_search kullan.
+- Selamlaşma/sohbet için general_response kullan ve "efendim" hitabını koru.
+- Takvimde sadece gün belirtilirse veya tatil/bayram/doğum günü ise all_day true yap.
+- Tarih/saat yoksa alanları güvenli varsayılanlarla doldur, uydurma ayrıntı ekleme.
+"""
+
 # ────────────────────────────────────────
 # 💾 CONVERSATION MEMORY
 # ────────────────────────────────────────
@@ -612,8 +643,9 @@ def process_command(user_input: str) -> dict | None:
             }
 
         try:
-            from assistant.config import OLLAMA_NUM_CTX, OLLAMA_TEMPERATURE
+            from assistant.config import OLLAMA_KEEP_ALIVE, OLLAMA_NUM_CTX, OLLAMA_TEMPERATURE
         except ImportError:
+            OLLAMA_KEEP_ALIVE = "30m"
             OLLAMA_NUM_CTX = 4096
             OLLAMA_TEMPERATURE = 0.0
 
@@ -621,6 +653,7 @@ def process_command(user_input: str) -> dict | None:
             "model": global_loader.get_llm_model(),
             "messages": messages,
             "format": "json",
+            "keep_alive": OLLAMA_KEEP_ALIVE,
             "options": {
                 "temperature": OLLAMA_TEMPERATURE,
                 "num_ctx": OLLAMA_NUM_CTX,

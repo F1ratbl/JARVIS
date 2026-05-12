@@ -115,8 +115,8 @@ def _recommended_model_for_ram(total_mb: int, pressure: str) -> tuple[str, str]:
         )
     if total_mb >= 12288:
         return (
-            "qwen3:8b",
-            "RAM'inizi fazla zorlamadan daha zeki yanıtlar için Qwen 3 8B önerilir.",
+            "qwen2.5:7b",
+            "RAM'i dengeli kullanıp Türkçe komutları iyi anlaması için Qwen 2.5 7B önerilir.",
         )
     if pressure == "high":
         return (
@@ -125,8 +125,8 @@ def _recommended_model_for_ram(total_mb: int, pressure: str) -> tuple[str, str]:
         )
     if total_mb >= 8192:
         return (
-            "qwen3:8b",
-            "Anlama kalitesini yükseltmek için Qwen 3 8B öneriliyor; hız düşerse Qwen 2.5 7B güvenli yedek.",
+            "qwen2.5:7b",
+            "RAM'inizi yormayacak en dengeli seçenek Qwen 2.5 7B; daha hızlı isterseniz Llama 3.2 seçilebilir.",
         )
     return (
         "qwen2.5:7b",
@@ -268,6 +268,7 @@ class ConnectionManager:
                     "type": "download_progress", 
                     "data": {"status": "success", "percent": 100, "model": model_name}
                 })
+                threading.Thread(target=preload_runtime_modules, daemon=True).start()
                 return
 
             # Modeli asenkron olarak indir
@@ -301,6 +302,7 @@ class ConnectionManager:
                 "type": "download_progress", 
                 "data": {"status": "success", "percent": 100, "model": model_name}
             })
+            threading.Thread(target=preload_runtime_modules, daemon=True).start()
             
         except Exception as e:
             await websocket.send_json({
@@ -325,6 +327,36 @@ def send_system_info_from_thread():
             manager.send_system_info(), 
             loop_ref
         )
+
+
+def preload_runtime_modules():
+    """Warm up heavy local modules after the web server starts."""
+    preload_steps = [
+        ("web_search", "Web arama hazırlanıyor..."),
+        ("whisper", "Ses algılama modeli hazırlanıyor..."),
+        ("llm", "Yerel zeka modeli hazırlanıyor..."),
+    ]
+
+    for module_name, status in preload_steps:
+        try:
+            send_event_from_thread("preload", status)
+            global_loader.get(module_name)
+        except Exception as exc:
+            if DEBUG:
+                print(f"⚠️ Preload hatası ({module_name}): {exc}")
+
+    try:
+        from assistant import brain
+
+        # Tam brain yolunu ısıt: model, JSON formatı ve sistem prompt'u aynı anda cache'e girer.
+        brain.process_command("Hazır mısın?")
+        brain.clear_history()
+    except Exception as exc:
+        if DEBUG:
+            print(f"⚠️ LLM ısıtma hatası: {exc}")
+
+    send_event_from_thread("preload", "Hazırlık tamamlandı.")
+    send_system_info_from_thread()
 
 # ────────────────────────────────────────
 # 🚀 ARKA PLAN JARVIS DÖNGÜSÜ
@@ -386,8 +418,8 @@ def jarvis_background_loop():
             
             # 5. Sonucu söyle
             if result:
-                mouth.speak(result)
                 send_event_from_thread("response", result)
+                mouth.speak(result)
             tracker.mark("tts")
 
             if DEBUG:
@@ -430,15 +462,27 @@ async def process_text_command(text: str):
             return
             
         await manager.broadcast({"type": "status", "data": "Uyguluyor..."})
+
+        if command_json.get("action") == "open_app":
+            target = str(command_json.get("target") or "uygulama").strip()
+            optimistic_result = f"{target.title()} açılıyor efendim."
+            await manager.broadcast({"type": "response", "data": optimistic_result})
+            loop.run_in_executor(None, mouth.speak, optimistic_result)
+            loop.run_in_executor(None, hands.execute_action, command_json)
+            tracker.mark("action")
+            tracker.mark("tts")
+            await manager.broadcast({"type": "latency", "data": tracker.as_dict()})
+            await manager.broadcast({"type": "status", "data": "Dinlemeye Hazır"})
+            return
         
         # 3. Eylemi gerçekleştir
         result = await loop.run_in_executor(None, hands.execute_action, command_json)
         tracker.mark("action")
         
-        # 4. Sonucu söyle
+        # 4. Sonucu ekrana hemen gönder, TTS'i arka planda başlat.
         if result:
-            await loop.run_in_executor(None, mouth.speak, result)
             await manager.broadcast({"type": "response", "data": result})
+            loop.run_in_executor(None, mouth.speak, result)
         tracker.mark("tts")
         await manager.broadcast({"type": "latency", "data": tracker.as_dict()})
         if DEBUG:
@@ -460,6 +504,8 @@ async def lifespan(app: FastAPI):
     global loop_ref
     loop_ref = asyncio.get_running_loop()
     
+    # Ağır yerel modülleri arkaplanda ısıt
+    threading.Thread(target=preload_runtime_modules, daemon=True).start()
     # Asistanı arkaplanda başlat
     threading.Thread(target=jarvis_background_loop, daemon=True).start()
     yield
@@ -486,6 +532,10 @@ async def websocket_endpoint(websocket: WebSocket):
             try:
                 msg = json.loads(data)
                 if msg.get("action") == "start_setup":
+                    llm_model = msg.get("llm_model")
+                    if llm_model and llm_model != "Hesaplanıyor...":
+                        asyncio.create_task(manager.download_model(websocket, llm_model))
+                elif msg.get("action") == "select_model":
                     llm_model = msg.get("llm_model")
                     if llm_model and llm_model != "Hesaplanıyor...":
                         asyncio.create_task(manager.download_model(websocket, llm_model))

@@ -6,9 +6,11 @@ Tüm modüller bu dosyadan ayarları import eder.
 # ────────────────────────────────────────
 # 🧠 LLM (Ollama) Ayarları
 # ────────────────────────────────────────
-OLLAMA_MODEL = "qwen3:8b"  # Daha iyi Türkçe/JSON/tool takibi için yerel model; "auto" RAM'e göre seçer
+OLLAMA_MODEL = "qwen2.5:7b"  # Daha iyi Türkçe/JSON/tool takibi için yerel model; "auto" RAM'e göre seçer
 OLLAMA_TEMPERATURE = 0.0   # Komut ayrıştırmada tutarlı JSON için düşük sıcaklık
-OLLAMA_NUM_CTX = 4096      # Komut geçmişi ve araç şeması için bağlam penceresi
+OLLAMA_NUM_CTX = 2048      # Komut JSON'u için daha küçük ve hızlı bağlam penceresi
+OLLAMA_KEEP_ALIVE = "30m"  # Modeli her komuttan sonra hemen boşaltma; ilk yanıt gecikmesini azaltır
+WEB_SEARCH_USE_LLM_SUMMARY = False  # False: hızlı snippet cevabı, True: daha yavaş LLM özeti
 
 # ────────────────────────────────────────
 # 🎤 Ses Kayıt Ayarları

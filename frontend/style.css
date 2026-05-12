@@ -129,6 +129,7 @@
 
 .sidebar-command-button,
 .sidebar-icon-button,
+.header-icon-button,
 .chat-session-button,
 .chat-session-menu-button,
 .chat-session-delete-button {
@@ -161,8 +162,19 @@
     flex: 0 0 auto;
 }
 
+.header-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    flex: 0 0 auto;
+}
+
 .sidebar-command-button:hover,
 .sidebar-icon-button:hover,
+.header-icon-button:hover,
 .chat-session-button:hover,
 .chat-session-menu-button:hover,
 .chat-session-delete-button:hover {
@@ -307,4 +319,173 @@
     border-color: rgba(168, 232, 255, 0.55);
     background: rgba(0, 212, 255, 0.12);
     color: #a8e8ff;
+}
+
+.settings-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(14, 14, 19, 0.78);
+    backdrop-filter: blur(18px);
+    transition: opacity 180ms ease;
+}
+
+.settings-panel {
+    width: min(920px, 94vw);
+    max-height: 90vh;
+    overflow-y: auto;
+    border: 1px solid rgba(60, 215, 255, 0.28);
+    border-radius: 8px;
+    background: rgba(27, 27, 32, 0.98);
+    box-shadow: 0 28px 90px rgba(0, 0, 0, 0.48), 0 0 34px rgba(0, 212, 255, 0.1);
+    padding: 24px;
+}
+
+.settings-header,
+.settings-memory,
+.settings-section-heading {
+    display: flex;
+    align-items: center;
+}
+
+.settings-header {
+    justify-content: space-between;
+    gap: 18px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.16);
+}
+
+.settings-title {
+    margin: 0;
+    color: #a8e8ff;
+    font: 800 26px/1.1 "Space Grotesk", sans-serif;
+    letter-spacing: 0;
+    text-shadow: 0 0 10px rgba(0, 212, 255, 0.38);
+}
+
+.settings-subtitle,
+.settings-help,
+.settings-empty {
+    color: rgba(187, 201, 207, 0.76);
+    font: 500 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.settings-memory {
+    gap: 12px;
+    margin: 18px 0;
+}
+
+.settings-memory > div {
+    flex: 1 1 0;
+    min-width: 0;
+    border: 1px solid rgba(133, 147, 152, 0.22);
+    border-radius: 6px;
+    background: rgba(31, 31, 37, 0.78);
+    padding: 14px;
+}
+
+.settings-kicker {
+    display: block;
+    margin-bottom: 6px;
+    color: rgba(187, 201, 207, 0.72);
+    font: 700 10px/1 "Space Grotesk", sans-serif;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.settings-memory strong {
+    color: #a8e8ff;
+    font: 700 18px/1.2 "Space Grotesk", sans-serif;
+}
+
+.settings-section {
+    margin-top: 18px;
+}
+
+.settings-section-heading {
+    gap: 8px;
+    color: #e4e1e9;
+    font: 700 14px/1.2 "Space Grotesk", sans-serif;
+    letter-spacing: 0.04em;
+}
+
+.settings-help {
+    margin: 8px 0 14px;
+}
+
+.settings-model-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.settings-empty {
+    grid-column: 1 / -1;
+    border: 1px solid rgba(133, 147, 152, 0.22);
+    border-radius: 6px;
+    background: rgba(31, 31, 37, 0.72);
+    padding: 16px;
+}
+
+.settings-progress {
+    margin-top: 18px;
+    color: rgba(187, 201, 207, 0.86);
+    font: 700 11px/1.2 "Space Grotesk", sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.settings-progress-track {
+    height: 8px;
+    margin-top: 8px;
+    border: 1px solid rgba(133, 147, 152, 0.22);
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(53, 52, 58, 0.72);
+}
+
+.settings-progress-fill {
+    width: 0%;
+    height: 100%;
+    background: #3cd7ff;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+    transition: width 180ms ease;
+}
+
+.settings-primary-button {
+    width: 100%;
+    min-height: 46px;
+    margin-top: 18px;
+    border: 1px solid rgba(168, 232, 255, 0.75);
+    border-radius: 5px;
+    background: #a8e8ff;
+    color: #003642;
+    font: 800 13px/1 "Space Grotesk", sans-serif;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    transition: background 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+}
+
+.settings-primary-button:hover {
+    background: #3cd7ff;
+    box-shadow: 0 0 24px rgba(0, 212, 255, 0.28);
+}
+
+@media (max-width: 760px) {
+    .settings-memory,
+    .settings-model-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .settings-memory {
+        flex-direction: column;
+    }
+
+    .settings-memory > div {
+        width: 100%;
+    }
 }
