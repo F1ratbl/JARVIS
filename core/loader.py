@@ -331,6 +331,7 @@ class LazyLoader:
             )
             return model
         except Exception as e:
+            self._last_errors["whisper"] = f"Whisper yüklenemedi: {e}"
             self._warn(f"Whisper yüklenemedi: {e}")
             return None
 
@@ -386,8 +387,19 @@ class LazyLoader:
         try:
             import openwakeword
             from openwakeword.model import Model
-            openwakeword.utils.download_models()
-            model = Model(inference_framework="onnx")
+            from assistant.config import WAKE_WORD_MODEL
+
+            model_name = str(WAKE_WORD_MODEL or "hey_jarvis").replace(" ", "_")
+            model_paths = openwakeword.get_pretrained_model_paths("onnx")
+            matching_model = [
+                path for path in model_paths
+                if model_name in os.path.basename(path)
+            ]
+
+            if not matching_model or not os.path.exists(matching_model[0]):
+                openwakeword.utils.download_models([model_name])
+
+            model = Model(wakeword_models=[model_name], inference_framework="onnx")
             return model
         except Exception as e:
             self._warn(f"openWakeWord yüklenemedi: {e}")

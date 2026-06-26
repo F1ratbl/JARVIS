@@ -4,6 +4,8 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 venv/
+build/
+dist/
 memory_manager/build/
 memory_manager/.cache/
 memory_manager/compile_commands.json

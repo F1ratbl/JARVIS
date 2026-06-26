@@ -2,10 +2,20 @@ import os
 import sys
 import unittest
 from datetime import datetime
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from assistant import brain, hands
+
+
+class FrozenBrainDateTime(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        value = cls(2026, 1, 15, 12, 0, 0)
+        if tz is not None:
+            return value.replace(tzinfo=tz)
+        return value
 
 
 class TestBrainRules(unittest.TestCase):
@@ -57,7 +67,8 @@ class TestBrainRules(unittest.TestCase):
         self.assertEqual(command["target"], "telegram")
 
     def test_calendar_day_note_uses_correct_future_date(self):
-        command = brain.process_command("23 mayısa kurban bayramı tatili yaz")
+        with patch.object(brain, "datetime", FrozenBrainDateTime):
+            command = brain.process_command("23 mayısa kurban bayramı tatili yaz")
         self.assertEqual(command["action"], "create_event")
         self.assertEqual(command["target"], "Kurban Bayramı Tatili")
         self.assertEqual(command["date"], "2026-05-23")
@@ -65,7 +76,8 @@ class TestBrainRules(unittest.TestCase):
         self.assertTrue(command["all_day"])
 
     def test_calendar_timed_event_extracts_time(self):
-        command = brain.process_command("23 mayıs saat 14:30 doktor randevusu ekle")
+        with patch.object(brain, "datetime", FrozenBrainDateTime):
+            command = brain.process_command("23 mayıs saat 14:30 doktor randevusu ekle")
         self.assertEqual(command["action"], "create_event")
         self.assertEqual(command["target"], "Doktor Randevusu")
         self.assertEqual(command["date"], "2026-05-23")

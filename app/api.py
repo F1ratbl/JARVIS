@@ -2,7 +2,6 @@ import asyncio
 import threading
 import traceback
 import json
-import re
 import subprocess
 from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -144,16 +143,10 @@ def _current_llm_model() -> str:
 
 def _set_current_llm_model(model_name: str) -> None:
     from assistant import config
+    from core.user_settings import save_settings
 
     config.OLLAMA_MODEL = model_name
-    config_path = Path(__file__).resolve().parents[1] / "assistant" / "config.py"
-    text = config_path.read_text(encoding="utf-8")
-    replacement = (
-        f'OLLAMA_MODEL = "{model_name}"  # Daha iyi Türkçe/JSON/tool takibi için yerel model; '
-        '"auto" RAM\'e göre seçer'
-    )
-    text = re.sub(r'^OLLAMA_MODEL\s*=.*$', replacement, text, count=1, flags=re.MULTILINE)
-    config_path.write_text(text, encoding="utf-8")
+    save_settings({"OLLAMA_MODEL": model_name})
     global_loader.unload("llm")
 
 
@@ -312,6 +305,7 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 loop_ref = None
+voice_command_lock = asyncio.Lock()
 
 def send_event_from_thread(event_type: str, data: str):
     """Arka plan thread'inden WebSocket event'i fırlatır."""
@@ -496,6 +490,38 @@ async def process_text_command(text: str):
             traceback.print_exc()
         await manager.broadcast({"type": "error", "data": f"Hata: {str(e)}"})
 
+
+async def process_voice_command():
+    if voice_command_lock.locked():
+        await manager.broadcast({"type": "status", "data": "Zaten dinliyor..."})
+        return
+
+    async with voice_command_lock:
+        from assistant import ear
+
+        loop = asyncio.get_running_loop()
+        await manager.broadcast({"type": "status", "data": "Dinliyor..."})
+
+        try:
+            command_text = await loop.run_in_executor(None, ear.record_and_transcribe)
+        except Exception as e:
+            if DEBUG:
+                traceback.print_exc()
+            await manager.broadcast({"type": "error", "data": f"Ses alınamadı: {str(e)}"})
+            await manager.broadcast({"type": "status", "data": "Dinlemeye Hazır"})
+            return
+
+        if not command_text:
+            detail = ""
+            if hasattr(ear, "get_last_audio_error"):
+                detail = ear.get_last_audio_error()
+            message = f"Ses anlaşılamadı: {detail}" if detail else "Ses anlaşılamadı."
+            await manager.broadcast({"type": "error", "data": message})
+            await manager.broadcast({"type": "status", "data": "Dinlemeye Hazır"})
+            return
+
+        await process_text_command(command_text)
+
 # ────────────────────────────────────────
 # 🌐 FASTAPI UYGULAMASI
 # ────────────────────────────────────────
@@ -544,6 +570,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     if text:
                         # Process text asynchronously
                         asyncio.create_task(process_text_command(text))
+                elif msg.get("action") == "voice_command":
+                    asyncio.create_task(process_voice_command())
                 elif msg.get("action") == "clear_history":
                     from assistant import brain
                     brain.clear_history()

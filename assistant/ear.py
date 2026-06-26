@@ -9,7 +9,9 @@ import numpy as np
 import scipy.io.wavfile as wav
 import os
 import sys
+import tempfile
 from collections import deque
+from pathlib import Path
 
 from assistant.config import (
     SAMPLE_RATE, RECORD_DURATION, TEMP_AUDIO_FILE,
@@ -28,6 +30,32 @@ from core.loader import global_loader
 _whisper_model = None
 # openWakeWord modelini bir kere yükle
 _oww_model = None
+_last_audio_error = ""
+
+
+def _set_audio_error(message: str = ""):
+    """Son ses/STT hatasını UI tarafına taşımak için saklar."""
+    global _last_audio_error
+    _last_audio_error = message
+
+
+def get_last_audio_error() -> str:
+    """Son ses/STT hatasını döndürür."""
+    return _last_audio_error
+
+
+def _resolve_audio_path(filename=None) -> str:
+    """
+    Geçici ses dosyasını yazılabilir bir konuma taşır.
+
+    macOS .app Finder'dan açıldığında çalışma klasörü yazılamayan bir yer
+    olabiliyor; bu yüzden göreli dosya adlarını sistem temp klasöründe tutuyoruz.
+    """
+    filename = filename or TEMP_AUDIO_FILE
+    path = Path(str(filename)).expanduser()
+    if not path.is_absolute():
+        path = Path(tempfile.gettempdir()) / path.name
+    return str(path)
 
 
 def _get_whisper_model():
@@ -119,6 +147,13 @@ def _listen_openwakeword():
 
 def _listen_push_to_talk():
     """Push-to-Talk: Enter tuşuna basarak aktifleştirme."""
+    if not sys.stdin or not sys.stdin.isatty():
+        if DEBUG:
+            print("Push-to-talk icin etkilesimli terminal yok; sesli dinleme beklemeye alindi.")
+        import time
+        time.sleep(1)
+        return False
+
     try:
         input("\n⏎  Konuşmak için ENTER'a basın...")
         return True
@@ -244,7 +279,8 @@ def _record_until_silence(filename: str) -> str | None:
 
 def record_audio(filename=None, duration=None):
     """Mikrofondan ses kaydeder ve WAV dosyasına yazar."""
-    filename = filename or TEMP_AUDIO_FILE
+    _set_audio_error()
+    filename = _resolve_audio_path(filename)
     fixed_duration = duration is not None
     duration = duration or RECORD_DURATION
     
@@ -266,7 +302,9 @@ def record_audio(filename=None, duration=None):
         return recorded_file
         
     except Exception as e:
-        print(f"❌ Kayıt hatası: {e}")
+        message = f"Kayıt hatası: {e}"
+        _set_audio_error(message)
+        print(f"❌ {message}")
         return None
 
 
@@ -276,13 +314,22 @@ def record_audio(filename=None, duration=None):
 
 def transcribe_audio(filename=None):
     """Ses dosyasını Whisper ile metne çevirir."""
-    filename = filename or TEMP_AUDIO_FILE
+    _set_audio_error()
+    filename = _resolve_audio_path(filename)
     
     if not os.path.exists(filename):
-        print("❌ Ses dosyası bulunamadı!")
+        message = "Ses dosyası bulunamadı."
+        _set_audio_error(message)
+        print(f"❌ {message}")
         return ""
     
     model = _get_whisper_model()
+    if model is None:
+        loader_error = global_loader.get_last_error("whisper")
+        message = loader_error or "Whisper modeli yüklenemedi."
+        _set_audio_error(message)
+        print(f"❌ {message}")
+        return ""
     
     try:
         segments, info = model.transcribe(
@@ -314,7 +361,9 @@ def transcribe_audio(filename=None):
         return text
         
     except Exception as e:
-        print(f"❌ Transkripsiyon hatası: {e}")
+        message = f"Transkripsiyon hatası: {e}"
+        _set_audio_error(message)
+        print(f"❌ {message}")
         return ""
 
 
@@ -354,7 +403,7 @@ def listen():
 
 def cleanup(filename=None):
     """Geçici ses dosyasını siler."""
-    filename = filename or TEMP_AUDIO_FILE
+    filename = _resolve_audio_path(filename)
     if os.path.exists(filename):
         os.remove(filename)
 

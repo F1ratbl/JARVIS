@@ -66,3 +66,12 @@ WAKE_WORD_CHUNK_SIZE = 1280        # 80ms @ 16kHz = 1280 örnek
 # ────────────────────────────────────────
 DEBUG = True                 # Detaylı log çıktısı
 CONVERSATION_MEMORY = 5     # Hatırlanan son mesaj sayısı
+
+# Paketlenmiş masaüstü uygulamada kod dosyasını değiştirmeden kullanıcı tercihlerini uygula.
+try:
+    from core.user_settings import load_settings
+
+    _USER_SETTINGS = load_settings()
+    OLLAMA_MODEL = str(_USER_SETTINGS.get("OLLAMA_MODEL", OLLAMA_MODEL))
+except Exception:
+    pass

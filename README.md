@@ -19,7 +19,7 @@ Temel hedefler:
 - Ollama uzerinden yerel LLM cikarimi
 - macOS AppleScript/subprocess otomasyonu
 - Yerel TTS icin macOS `say`
-- Web gerektiren sorularda bulut LLM API'si kullanmadan DuckDuckGo snippet'lerini yerel modele baglam olarak verme
+- Web gerektiren sorularda bulut LLM API'si kullanmadan DuckDuckGo snippet'leriyle hizli cevap verme; istenirse yerel LLM ozetleme moduna gecebilme
 - Dusuk RAM kullanimina uygun lazy loading ve model onerisi
 
 ## Kapsam
@@ -32,6 +32,7 @@ Mevcut kapsam:
 - `assistant/mouth.py`: macOS `say` ve opsiyonel gTTS TTS katmani
 - `assistant/config.py`: model, STT, TTS ve gizlilik ayarlari
 - `app/api.py`: FastAPI + WebSocket dashboard
+- `app/desktop.py`: yerel dashboard'u native masaustu penceresinde acan launcher
 - `app/main.py`: terminal modu giris noktasi
 - `core/loader.py`: RAM kontrollu lazy loader ve model onerisi
 - `core/first_run.py`: first-run ortam kontrolu
@@ -102,7 +103,7 @@ Mahremiyet icin onerilen ayarlar:
 | SearXNG | Var | 150-300 MB | Orta | Instance'a bagli | Ayri servis ve RAM maliyeti nedeniyle bu prototipte secilmedi |
 | Tor yonlendirme | Var | 50 MB+ | Yuksek | Ag anonimligi daha guclu | Gecikme ve daemon maliyeti nedeniyle varsayilan degil |
 
-Bu projede `ddgs` secilmistir. Web sonuclari yalnizca kisa metin snippet'leri olarak tutulur ve yerel LLM'e baglam olarak verilir.
+Bu projede `ddgs` secilmistir. Web sonuclari yalnizca kisa metin snippet'leri olarak tutulur. Varsayilan modda hizli snippet cevabi uretilir; daha akici ama daha yavas cevap gerektiginde `WEB_SEARCH_USE_LLM_SUMMARY = True` ile sonuclar yerel LLM'e baglam olarak verilebilir.
 
 ## Fuzzy App Matching
 
@@ -176,6 +177,24 @@ Ardindan:
 http://localhost:8000
 ```
 
+Masaustu uygulamasi (gelistirme modu):
+
+```bash
+./venv/bin/python -m app.desktop
+```
+
+Bu komut FastAPI sunucusunu sadece `127.0.0.1` uzerinde arka planda baslatir ve dashboard'u native bir pencere icinde acar. `pywebview` kurulu degilse ayni yerel adres varsayilan tarayicida acilir.
+
+macOS `.app` paketi uretmek:
+
+```bash
+./venv/bin/python -m pip install -r requirements.txt
+./scripts/build_macos_app.sh
+open dist/JARVIS.app
+```
+
+Paketlenmis uygulama yine yerel Ollama, macOS `say`, mikrofon ve AppleScript izinlerine ihtiyac duyar. Ilk calistirmada macOS mikrofon/otomasyon izni sorabilir.
+
 ## 6. Performans Testleri ve Optimizasyon
 
 `core/metrics.py`, her komut icin asama surelerini olcer:
@@ -209,20 +228,22 @@ Ilk testlerde asil gecikmenin STT, TTS veya DuckDuckGo aramasindan degil; yerel 
 | Kural tabanli komut anlama | 0.000-0.003 sn | 0.000-0.003 sn | `takvimi ac`, takvim etkinligi, hava durumu niyeti |
 | Hava durumu API aksiyonu | 0.665-1.037 sn | 0.665-1.037 sn | `wttr.in` tabanli deterministik cevap |
 | DuckDuckGo sadece arama | 1.927 sn | 1.927 sn | Arama katmani ana darboğaz degil |
-| DuckDuckGo + LLM ozetleme | 42-58 sn | Henuz optimize edilmedi | Web sonucunu LLM ile ozetleme en agir sonraki aday |
+| DuckDuckGo hizli snippet cevabi | 42-58 sn LLM ozetleme | 1-2 sn | Varsayilan mod LLM ozetlemeyi beklemez |
+| DuckDuckGo + LLM ozetleme | 42-58 sn | Opsiyonel / kapali | Daha akici ozet uretir ancak 8 GB RAM'de agir kalir |
 | STT model yukleme | 14.328 sn | Preload ile acilisa tasindi | Ilk sesli kullanimda hissedilen gecikme azalir |
 | STT kisa ses transkripsiyonu | 0.858 sn | 0.858 sn | Whisper model yuklendikten sonraki sure |
 | TTS kisa cevap | 1.848 sn | 1.848 sn | `macOS say`, sesli okuma suresi dahil |
 | TTS orta cevap | 6.596 sn | 6.596 sn | Cevap uzadikca dogrudan artar |
 
-Pratik UI deneyiminde cevap balonu, su an metnin sesli okunmasindan sonra gosterildigi icin kullanici tarafinda gorunen toplam sure daha yuksek olabilir. Ornegin test ekraninda:
+Pratik UI deneyiminde cevap balonu artik TTS'in bitmesini beklemeden gosterilir. Bu nedenle kullanicinin ekranda gordugu sure, sesli okumanin tamamlanma suresinden ayrilmistir. Son deneyimlerde gozlenen yaklasik sureler:
 
-| Komut | Kullanici zamani | Jarvis cevap zamani | UI'da gorunen fark |
-| --- | --- | --- | ---: |
-| `merhaba` | 16:51:37 | 16:51:45 | ~8 sn |
-| `telegrami ac` | 16:52:06 | 16:52:14 | ~8 sn |
+| Komut | UI'da gorunen fark | Hedefe gore durum |
+| --- | ---: | --- |
+| `telegrami ac` | Anlik | Hedefin icinde |
+| `nvidia nedir` | ~2 sn | Hedefin icinde |
+| `merhaba` | ~5 sn | Hedefin uzerinde |
 
-Bu farkin bir kismi LLM/action suresi, bir kismi da TTS'in bloklayici calismasindan kaynaklanir. Kodda `process_text_command()` sonucu once `mouth.speak()` ile okur, sonra WebSocket'e `response` eventi yollar. Bu nedenle UI cevabi TTS tamamlandiktan sonra gorunur.
+Bu ayrim onemlidir: uygulama acma gibi deterministik komutlar LLM'e gitmeden calistigi icin anliktir. Serbest sohbet ise hala yerel LLM cikarimina baglidir; bu nedenle `merhaba` gibi basit gorunen ifadeler bile model tarafinda 5 saniye civarina cikabilir.
 
 Yapilan gecikme optimizasyonlari:
 
@@ -231,7 +252,9 @@ Yapilan gecikme optimizasyonlari:
 - `OLLAMA_NUM_CTX` 4096'dan 2048'e indirildi; komut JSON'u icin yeterli ama daha hizli baglam penceresi kullanildi.
 - Runtime sistem prompt'u 6611 karakterden 1683 karaktere indirildi.
 - Preload sadece `global_loader.get("llm")` yapmak yerine dogrudan `brain.process_command("Hazir misin?")` cagirarak tam brain yolunu isitir hale getirildi.
-- Web arama ozetleme LLM cagrilarina da `keep_alive` eklendi.
+- Web aramada varsayilan olarak hizli snippet cevabi donuldu; LLM ozetleme opsiyonel hale getirildi.
+- TTS, UI cevabini bloklamayacak sekilde arka plana alindi.
+- Uygulama acma komutlarinda cevap balonu once gosterilip asil macOS aksiyonu arka planda calistirildi.
 
 ### 6.2. Kaynak Tuketimi (RAM & CPU/GPU)
 
@@ -283,7 +306,7 @@ Sözdizimi kontrolu:
 ## Kisitlar
 
 - Platform: AppleScript nedeniyle macOS hedeflenir.
-- Donanim: Llama 3 icin minimum 8 GB RAM, tavsiye edilen 16 GB RAM.
+- Donanim: 7B-8B sinifi yerel modeller icin minimum 8 GB RAM, daha kararlı deneyim icin 16 GB RAM tavsiye edilir.
 - Web arama: Bulut LLM/STT API kullanmaz, ancak DuckDuckGo'ya sorgu gonderir.
 - Wake-word: Ses buluta gitmez; fakat mikrofon stream'i yerel olarak surekli dinlenir.
 - TTS: Varsayilan `macos_say` yerlidir; `gtts` secilirse bulut servisi kullanilir.

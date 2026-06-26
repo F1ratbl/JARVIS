@@ -476,6 +476,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnSendChat) {
         btnSendChat.addEventListener('click', sendChatMessage);
     }
+    if (orbContainer) {
+        orbContainer.addEventListener('click', () => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({ action: 'voice_command' }));
+            updateOrbState('Dinliyor...');
+            updateHeaderStatus('Dinliyor...', 'info');
+            if (micStatusText) micStatusText.textContent = 'Dinliyor...';
+        });
+    }
     if (btnNewChat) {
         btnNewChat.addEventListener('click', startNewChat);
     }
